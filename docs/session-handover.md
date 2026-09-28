@@ -43,3 +43,35 @@
 - Bugs found and fixed during bring-up: (a) the post-hoc timeout could duplicate rows, fixed with row_uuid + ON CONFLICT DO NOTHING and a strict wall-clock deadline; (b) a wrong SUPABASE_URL (the dashboard URL) returned HTML 200s that counted as successful writes, fixed with URL validation and rejection of HTML responses; (c) the reset script failed when tables were missing.
 - Phase 1 exit criteria remaining: MT5 via Wine on the VPS (blocked on escalation #1, host CPU architecture) and the external uptime monitor.
 - Owner note: the engine `.env` must never use `NEXT_PUBLIC_*` names for secrets. The dashboard (Phase 6) gets its own env with the publishable/anon key only.
+
+
+## Handover Entry — 28 September 2026 — Session #2
+
+**Tasks completed this block (5):**
+1. Escalation #1 resolved with owner sign-off: AWS EC2 x86 is now primary (Doc 3 v1.2 Change Log). Found and recorded that new AWS accounts get $200 in credits for 6 months, not 12 months free (Doc 6 risk register).
+2. VPS runbook (`docs/runbooks/01_aws_vps_setup.md`), idempotent `ops/setup/bootstrap_ubuntu.sh` (swap, WineHQ, Windows Python 3.11 + MetaTrader5 + mt5linux under Wine), and a corrected `alse-mt5.service`.
+3. Phase 2 core math: `engine/params.py` (Doc 2 defaults, overridable from `config_current`), `engine/range/levels.py`, `engine/orders/plan.py` (entry/SL/TP, 15/100pt caps, entry-only spread gate), `engine/risk/sizing.py` (closed-form lot formula, min-lot skip, margin/max-lot).
+4. `engine/risk/state_machine.py`: the exhaustive Doc 2 §7 table, win definition (> $0.01), and circuit breaker (strictly below −4%). `engine/management/partial.py`: 1.5R trigger, remainder-floor partial close, BE+5.
+5. `engine/signal/detector.py`: sweep, displacement (10pt + 60% body ratio, flat candle = fail), FIFO, resting-order invalidation, 21:00 expiry. 51 tests pass, covering every edge case listed in Doc 6's Phase 2 exit criteria.
+
+**Current phase:** Phase 1 IN PROGRESS (VPS/MT5/uptime monitor, on the owner side). Phase 2 IN PROGRESS in parallel (owner-approved): pure logic done. Remaining: engine orchestrator loop, order execution through mt5_client with the audit write-ordering, state recovery on restart, hard kill, dry-run mode.
+
+**Decisions made (implementer authority) — review welcome:**
+- Price rounding to the tick is conservative (bull entry/SL rounded down, bear rounded up). SL points and TP are derived from the rounded prices, so TP is exactly 3× the real SL and lot sizing uses the real distance. The effect is under one tick.
+- A 5m candle closing exactly at 21:00:00 is not acted on, because its order would expire in the same instant.
+- One entry order per trading day. After a setup-level rejection (caps/spread/min-lot/margin) the day is over, following "do not retry within the same setup instance". This is the conservative reading.
+
+**Open questions / escalations waiting on owner:**
+- 🔴 **#4: Doc 2 §4 contradiction.** "Opposite side permanently suppressed the instant an order is placed" vs "Resting-order invalidation: cancel, then process the newly validated opposite setup." Implemented as `InvalidationPolicy`: the default is `CANCEL_ONLY` (cancel the stale order, place nothing), and the alternative is `CANCEL_AND_REVERSE`. The owner must choose; the choice then needs a Doc 2 Change Log entry.
+- 🟠 #2 FOMC day(s), and 🟠 #3 holiday-adjacent hard kill: still open from Session #1.
+- 🟠 **#5: SL-cap rejected setup.** When one side's setup is rejected (e.g. SL > 100pt), can the opposite side still trade later that window? Currently no (the day ends). Note: SL distance is 1.25 × range for both sides, so if one side fails the caps the other fails too. This only matters for spread and margin rejections.
+- Owner: AWS account month-5 decision (the credits expire).
+
+**Next 5 tasks queued:**
+1. Owner: follow runbook 01 → run the smoke test on the VPS with MT5 → UptimeRobot (Phase 1 sign-off).
+2. `data/mt5_client` order methods (order_send / modify / remove / close) with pending→confirmed audit rows.
+3. Engine orchestrator: session loop, range marking at 20:30, detector wiring, 250ms poll, heartbeat integration.
+4. Trade management loop + hard kill + circuit breaker flatten (never spread-gated) + state recovery from Supabase/MT5 on restart.
+5. Dry-run mode against recorded/simulated data (Phase 2 exit, Phase 3 entry).
+
+**Must read before touching code:** escalation #4 above. `engine/` is float-free, and CI enforces it.

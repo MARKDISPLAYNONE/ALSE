@@ -187,6 +187,13 @@ Added Section 3.3, item 6: free-tier storage discipline — rolling 30–60 day 
 Section 4.3 heartbeat reference corrected — no longer states a specific cadence number in this document; now formally defers to Document 2, Section 2.5 as the single source of truth, since the same number was previously duplicated (and left undefined) across three documents.
 Section 6 failure-mode table expanded: added Wine-specific MT5 process failure mode (new risk introduced by the OS decision), added Supabase-slow-not-down scenario, elevated the external uptime monitor from "flagged, Phase 1/2" to a hard Phase 1 sign-off requirement given the increased blind-spot risk of a free-tier, Wine-based deployment. Elevated Document 4's manual export cadence from weekly to daily given free-tier Supabase's lack of automated backups.
 Section 1 tech stack table and Section 5 deployment section rewritten throughout to reflect the corrected OS/hosting decisions.
+
+v1.2 (28 September 2026) — Owner-approved hosting change (Escalation #1, session-handover Session #1):
+
+Finding: the v1.1 primary host (Oracle Always Free ARM Ampere A1) cannot run the MT5 terminal, which is an x86 Windows binary, under plain Wine. Wine translates the Windows API but does not emulate the CPU; ARM would need box64/FEX emulation on top of Wine, adding instability on top of the already-accepted Wine risk.
+Decision (owner sign-off 28 Sept 2026): AWS EC2 (x86) is now the primary host, running Ubuntu Server + Wine (OS decision unchanged). Instance: t3.small (2 GB RAM) if the account is on AWS's post-15-July-2025 credit-based Free plan, where t3.small is free-plan eligible; otherwise t3.micro + 2 GB swap.
+Budget caveat (new, material): AWS accounts created on or after 15 July 2025 receive up to $200 in credits valid for 6 months, not the legacy 12-month free tier assumed in v1.1. The Phase 4 + Phase 5 timeline (8+ weeks demo + ~9–10 months forward test) is longer than this, so the $0 constraint cannot hold on AWS for the whole project. Tracked as Doc 6 risk-register item and a dated reminder: the owner must choose, before month 5 of the account, between (a) activating the Doc 3 §1 upgrade trigger (~$15–20/month for t3.small), or (b) migrating to another x86 host. Migration mid-forward-test is discouraged, because it changes execution latency conditions within the test sample.
+Oracle ARM rejected on technical grounds (CPU architecture). Oracle AMD E2.1.Micro kept as the documented x86 fallback (1 GB RAM, lower reliability).
 # 10. What This Document Does NOT Cover (see Section 8)
 End of Document 3 v1.1.
 

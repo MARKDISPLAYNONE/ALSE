@@ -1,13 +1,17 @@
-# MT5 terminal + mt5linux bridge under Wine, headless via Xvfb (Doc 3 §5/§6).
+# MT5 terminal + mt5linux RPyC bridge under Wine, headless via Xvfb (Doc 3 §5/§6, v1.2).
+# The Linux-side `python -m mt5linux <win-python>` launches the Wine-side RPyC server on 127.0.0.1:18812.
 [Unit]
 Description=ALSE MT5 terminal + RPyC bridge (Wine)
 After=network-online.target
+Wants=network-online.target
 
 [Service]
 User=alse
-Environment=WINEPREFIX=/home/alse/.wine DISPLAY=:99
-ExecStartPre=/bin/sh -c 'pgrep Xvfb || (Xvfb :99 -screen 0 1024x768x16 &)'
-ExecStart=/usr/bin/wine "C:\\Python311\\python.exe" -m mt5linux "C:\\Python311\\python.exe" --host 127.0.0.1 --port 18812
+WorkingDirectory=/opt/alse
+Environment=WINEPREFIX=/home/alse/.wine WINEDEBUG=-all DISPLAY=:99
+ExecStartPre=/bin/sh -c 'pgrep -f "Xvfb :99" || (Xvfb :99 -screen 0 1024x768x16 >/dev/null 2>&1 &); sleep 2'
+ExecStartPre=/bin/sh -c 'pgrep -f terminal64.exe || (wine "C:\\\\Program Files\\\\FXPesa MT5 Terminal\\\\terminal64.exe" /portable >/dev/null 2>&1 &); sleep 15'
+ExecStart=/opt/alse/.venv/bin/python -m mt5linux --host 127.0.0.1 --port 18812 /home/alse/.wine/drive_c/Python311/python.exe
 Restart=always
 RestartSec=10
 

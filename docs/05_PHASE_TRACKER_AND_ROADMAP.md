@@ -49,7 +49,7 @@ Oracle Cloud (or AWS) free-tier account not yet provisioned (owner action).
 Supabase Free Tier project not yet confirmed created (owner action — decision itself is resolved, only the actual account creation remains).
 MT5 demo account credentials not yet confirmed available to the dev environment (owner action).
 Phase 2 — Strategy Engine Build
-Status: 🔲 NOT STARTED
+Status: 🟡 IN PROGRESS (28 Sept 2026, owner-approved to run in parallel with Phase 1 env bring-up) — pure logic modules + 51 unit tests done; orchestrator, execution, recovery, dry-run pending (session-handover.md Session #2)
 Owner: Trading Logic Developer
 
 Entry criteria: Phase 1 exit criteria met (data pipeline functional).
@@ -145,12 +145,15 @@ Dashboard timing metrics (hover duration, time-to-fill) inherit ±250ms floor fr
 (New) Supabase Free Tier has no automated backups	Compensated via elevated daily manual/scripted export (was weekly under an earlier paid-tier assumption); upgrade trigger to Pro tier defined	Doc 3, Sec 3.3 / Doc 4, Sec 2.1
 (New) Broker dynamic leverage cap (1:500) around weekly close/open and major news events overlaps briefly with the ~19-minute window before this system's own Hard-Kill fires on a Thursday-held position	Accepted as a monitored tail risk; flagged for direct observation during Phase 4 demo trading (watch for unusual margin behavior on Thursday-into-Friday positions); not engineered around at the spec level since broker-side margin implementation details are not fully knowable from published documentation alone	Doc 2, Sec 1
 (New) True daily market close (~16:57–16:59 NY) is closer to the 16:16 NY Hard-Kill than originally believed (~41–43 min real margin, not the multi-hour margin an earlier, incorrectly-converted hours table implied)	Hard-Kill execution confirmation given elevated alert priority; no change to the 16:16 NY trigger time itself, which remains adequate	Doc 2, Sec 1/6
+(New, 28 Sept 2026) AWS new-account free plan = $200 credits / 6 months, shorter than the Phase 4+5 timeline	Owner decides before account month 5: activate the Doc 3 §1 upgrade trigger (~$15–20/mo) or migrate to another x86 host before the forward test starts. Avoid migrating mid-test	Doc 3 v1.2
 # 5. Version History of This Document
 Version	Date	Change
 v1.0	19 July 2026	Initial phase tracker created. Phase 0 marked complete. Phases 1–7 defined with entry/exit criteria. Master open-items list (12 items) and risk register consolidated from Documents 1–5.
 v1.1	25 July 2026	Full documentation hardening pass synchronized into this document. Phase 0 status updated to reflect the remediation pass (Docs 1–6 all reissued as v1.1/v5.0). Phase 1 exit criteria updated (external uptime monitor now hard requirement, not deferred). Phase 3 updated to reference Doc 2, Sec 6.5 (Backtest Methodology Commitment) and Sec 9.5 (Forward-Test criteria). Phase 4 fully resolved from an open decision to a defined scope (20 setups/8 weeks minimum demo). Phase 5 exit criteria rewritten to reference Doc 2, Sec 9.5's exhaustive, precedence-ordered verdict logic (previously an undefined/missing section). Phase 6 Tier-1 count corrected 56→60. Master open-items list: 9 of 12 original items resolved and closed, 2 new items added (broker entity confirmation, interim checkpoint decision — now also resolved). Risk register expanded with three new accepted risks arising directly from this session's decisions (Linux+Wine reliability trade-off, Supabase Free Tier backup gap, broker leverage-cap overlap window). Date placeholder filled.
 v1.2	28 Sept 2026	Phase 1 moved to IN PROGRESS: code artifacts complete (see session-handover.md Session #1). New escalation raised: Doc 3's primary host (Oracle ARM Ampere) is incompatible with x86 MT5 under plain Wine — owner decision required.
 v1.3	28 Sept 2026	Phase 1: Supabase schema live + immutability verified, Python→Supabase write path (incl. timeout/buffer fallback) and Discord confirmed. Remaining exit criteria: MT5-under-Wine connectivity, external uptime monitor.
+v1.4	28 Sept 2026	Escalation #1 resolved: AWS EC2 x86 (t3.small on the new free plan) is the primary host, per Doc 3 v1.2. New risk-register row: AWS 6-month credit expiry.
+v1.5	28 Sept 2026	Phase 2 started in parallel (owner-approved). New escalation #4 (Doc 2 §4 suppression vs invalidation contradiction).
 (Every future update to this document adds a row here — this document tracks its own history the same way it tracks the project's.)
 
 # 6. Relationship to session-handover.md
