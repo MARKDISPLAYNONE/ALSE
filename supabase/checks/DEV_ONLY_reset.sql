@@ -1,12 +1,15 @@
 -- ⚠️ DEV ONLY — drops the entire ALSE schema so 0001 + 0002 can be re-run from scratch.
 -- Refuses to run if any real order/trade history exists. NEVER run once Phase 4 (demo) starts.
 do $$
+declare n bigint;
 begin
-  if to_regclass('public.order_events') is not null and exists (select 1 from order_events) then
-    raise exception 'Refusing: order_events has rows — this is audit history, not dev junk.';
+  if to_regclass('public.order_events') is not null then
+    execute 'select count(*) from public.order_events' into n;
+    if n > 0 then raise exception 'Refusing: order_events has % rows — audit history, not dev junk.', n; end if;
   end if;
-  if to_regclass('public.trade_events') is not null and exists (select 1 from trade_events) then
-    raise exception 'Refusing: trade_events has rows.';
+  if to_regclass('public.trade_events') is not null then
+    execute 'select count(*) from public.trade_events' into n;
+    if n > 0 then raise exception 'Refusing: trade_events has % rows.', n; end if;
   end if;
 end $$;
 

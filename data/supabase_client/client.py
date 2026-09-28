@@ -143,6 +143,8 @@ class SupabaseWriter:
             return f"http_error:{e.__class__.__name__}"
         if r.status_code >= 300:
             return f"status_{r.status_code}:{r.text[:200]}"
+        if "text/html" in r.headers.get("content-type", ""):
+            return "non_postgrest_response:html (wrong SUPABASE_URL?)"
         return None
 
     def _append_buffer(self, table: str, row: dict[str, Any]) -> None:

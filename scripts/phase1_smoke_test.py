@@ -38,8 +38,15 @@ if w.backlog():
 elif flushed:
     print(f"[INFO] flushed {flushed} rows left in local buffer from a previous run")
 
-check("supabase insert", lambda: (lambda r: (r.ok and not r.buffered, str(r)))(
-    w.insert("system_events", {**stamp().as_row(), "event": "phase1_smoke_test", "severity": "info"})))
+def insert_roundtrip():
+    ref = str(uuid.uuid4())
+    r = w.insert("system_events", {**stamp().as_row(), "event": "phase1_smoke_test", "severity": "info", "row_uuid": ref})
+    g = httpx.get(f"{s.supabase_url}/rest/v1/system_events?row_uuid=eq.{ref}&select=event", headers=hdr)
+    ok = r.ok and not r.buffered and g.status_code == 200 and g.json() == [{"event": "phase1_smoke_test"}]
+    return ok, f"{r} read_back={g.status_code}:{g.text[:120]}"
+
+
+check("supabase insert (proven by read-back)", insert_roundtrip)
 
 
 def immut():

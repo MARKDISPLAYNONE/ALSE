@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,6 +16,20 @@ def _req(name: str) -> str:
     if not v:
         raise RuntimeError(f"Missing required env var {name} — see .env.example")
     return v
+
+
+_SUPABASE_URL_RE = re.compile(r"^https://[a-z0-9]{15,40}\.supabase\.co$")
+
+
+def validate_supabase_url(url: str) -> str:
+    """Must be the API 'Project URL' (https://<ref>.supabase.co), NOT the dashboard URL."""
+    url = url.rstrip("/")
+    if not _SUPABASE_URL_RE.match(url):
+        raise RuntimeError(
+            f"SUPABASE_URL looks wrong: {url!r}. Use Project Settings → Data API → Project URL, "
+            "e.g. https://abcdefghijklmnopqrst.supabase.co (no /dashboard, no /rest/v1, no trailing path)."
+        )
+    return url
 
 
 @dataclass(frozen=True)
@@ -38,7 +53,7 @@ class Settings:
     def load(cls, require_mt5: bool = True) -> Settings:
         g = os.getenv
         return cls(
-            supabase_url=_req("SUPABASE_URL").rstrip("/"),
+            supabase_url=validate_supabase_url(_req("SUPABASE_URL")),
             supabase_service_key=_req("SUPABASE_SERVICE_ROLE_KEY"),
             discord_webhook=_req("DISCORD_WEBHOOK_URL"),
             discord_critical_webhook=g("DISCORD_CRITICAL_WEBHOOK_URL", "") or _req("DISCORD_WEBHOOK_URL"),
