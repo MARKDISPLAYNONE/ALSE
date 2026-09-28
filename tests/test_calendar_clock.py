@@ -8,23 +8,36 @@ from engine.session.clock import NY, Phase, current_session, next_daily_ping, wi
 
 def test_weekdays():
     assert cal.is_trading_day(date(2026, 9, 28))       # Mon
-    assert cal.is_trading_day(date(2026, 10, 1))       # Thu
+    assert cal.is_trading_day(date(2026, 10, 8))       # Thu
     assert not cal.is_trading_day(date(2026, 10, 2))   # Fri
     assert not cal.is_trading_day(date(2026, 10, 4))   # Sun
 
 def test_holidays_and_fomc():
-    assert cal.exclusion_reason(date(2026, 11, 26)) == "us_bank_holiday"   # Thanksgiving
-    assert cal.exclusion_reason(date(2026, 10, 12)) == "us_bank_holiday"   # Columbus
-    assert cal.exclusion_reason(date(2026, 10, 28)) == "fomc"
-    assert cal.exclusion_reason(date(2026, 10, 27)) == "fomc"             # conservative both-days default
+    assert cal.exclusion_reason(date(2026, 11, 26)) == "us_bank_holiday"            # Thanksgiving
+    assert cal.exclusion_reason(date(2026, 10, 12)) == "us_bank_holiday"            # Columbus
+    assert cal.exclusion_reason(date(2026, 10, 28)) == "fomc_decision_day"
+    assert cal.exclusion_reason(date(2026, 10, 27)) == "hold_window_event:fomc_statement"
 
-def test_calendar_fails_closed_beyond_list():
+def test_hold_window_events():
+    assert cal.exclusion_reason(date(2026, 10, 1)) == "hold_window_event:nfp"       # Thu → Fri NFP 08:30
+    assert cal.exclusion_reason(date(2026, 10, 13)) == "hold_window_event:cpi"      # Tue → Wed CPI
+    assert cal.exclusion_reason(date(2026, 7, 1)) == "hold_window_event:nfp"        # Wed → Thu NFP (Jul 2)
+    assert cal.exclusion_reason(date(2026, 2, 10)) == "hold_window_event:nfp"       # Tue → Wed NFP (Feb 11)
+
+def test_hold_window_market_closure():
+    assert cal.exclusion_reason(date(2026, 11, 25)) == "hold_window_market_closure"  # Wed → Thanksgiving
+    assert cal.market_closed_or_early(date(2026, 4, 3))                              # Good Friday (also NFP day)
+    assert cal.exclusion_reason(date(2026, 12, 23)) == "hold_window_market_closure"  # Wed → Xmas Eve
+    assert cal.is_trading_day(date(2026, 10, 5))
+
+def test_calendar_fails_closed_beyond_horizon():
     with pytest.raises(cal.CalendarExpiredError):
-        cal.is_trading_day(date(2028, 1, 4))
+        cal.is_trading_day(date(2027, 1, 4))
+
 
 def test_thursday_hard_kill_is_friday():
-    w = windows_for(date(2026, 10, 1))
-    assert w.hard_kill == datetime(2026, 10, 2, 16, 16, tzinfo=NY)
+    w = windows_for(date(2026, 10, 8))
+    assert w.hard_kill == datetime(2026, 10, 9, 16, 16, tzinfo=NY)
 
 def test_dst_transition_week():
     # US DST ends Sun 1 Nov 2026. Mon 2 Nov 20:00 NY = 01:00 UTC Tue (EST, UTC-5)

@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
 from zoneinfo import ZoneInfo
 
-from engine.session.calendar import is_trading_day, next_trading_day
+from engine.session.calendar import hard_kill_day, is_trading_day, next_trading_day
 
 NY = ZoneInfo("America/New_York")
 UTC = UTC
@@ -64,12 +64,7 @@ class SessionWindows:
 def windows_for(trading_day: date) -> SessionWindows:
     if not is_trading_day(trading_day):
         raise ValueError(f"{trading_day} is not a trading day")
-    # Doc 2 §2: hard kill at 16:16 on the "next NY trading day". For Thu sessions the
-    # position is held into Friday; Friday is not a *trading* (entry) day but the market
-    # is open until 16:57 NY, so the kill fires on the next calendar weekday.
-    nxt = trading_day + timedelta(days=1)
-    while nxt.weekday() >= 5:
-        nxt += timedelta(days=1)
+    nxt = hard_kill_day(trading_day)
     return SessionWindows(
         trading_day=trading_day,
         range_start=ny_dt(trading_day, RANGE_START),

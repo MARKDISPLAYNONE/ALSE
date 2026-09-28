@@ -24,3 +24,13 @@ def test_daily_ping_fires_once():
     s.tick(datetime(2026, 9, 26, 9, 0, 1, tzinfo=NY))
     s.tick(datetime(2026, 9, 26, 9, 3, tzinfo=NY))
     assert [r["kind"] for _, r in w.rows] == ["daily_coarse"]
+
+class N:
+    def __init__(self): self.sent = []
+    def send(self, t, b="", sev="info"): self.sent.append((t, sev))
+
+def test_horizon_alert_within_30_days():
+    w = W(); n = N(); s = HeartbeatService(w, notifier=n)
+    s._next_daily = datetime(2026, 12, 5, 9, 0, tzinfo=NY)
+    s.tick(datetime(2026, 12, 5, 9, 0, 1, tzinfo=NY))
+    assert n.sent and n.sent[0][1] == "high"

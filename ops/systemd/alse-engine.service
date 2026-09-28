@@ -12,6 +12,7 @@ ExecStart=/opt/alse/.venv/bin/python -m ops.heartbeat
 Restart=always
 RestartSec=5
 NoNewPrivileges=true
+MemoryMax=300M
 
 [Install]
 WantedBy=multi-user.target

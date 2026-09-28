@@ -350,6 +350,21 @@ Body Ratio displacement check (Section 4) given explicit divide-by-zero handling
 New Section 2.5 formalizes System Heartbeat cadence (09:00 NY daily ping + 5-minute active-window heartbeat) as a single source of truth, previously referenced with specific numbers in Documents 3 and 5 without ever being defined here.
 New Section 6.5 formalizes the Backtest Methodology Commitment (variable spread modeling, slippage penalty, 12-month minimum), previously referenced by Document 6 but not written here.
 All existing v1.0–v4.2 logic, numeric values, and Change Log history preserved unchanged and in full above this entry.
+
+v5.1 (28 September 2026 — decisions delegated by the project owner to the lead developer, logged per Doc 1 §0)
+
+Calendar defect correction: hold-window rule. Doc 2 §1's check of NFP/CPI/Fed timing compared release times only against the 20:00–21:00 NY ENTRY window. Positions are held until the 16:16 NY Hard-Kill on the next weekday, so the hold window was never checked. The official BLS schedules also contradict the claim that "NFP always falls on an already-excluded Friday": NFP released Tue 16 Dec 2025, Wed 11 Feb 2026 and Thu 2 Jul 2026, and CPI regularly lands Tue–Thu. Every Thursday session was being held through Friday's 08:30 NFP, and every CPI-eve session through CPI. That exposed open positions to gap-through-SL risk (breaking the per-trade risk-% guarantee that metric C14 validates) and to the broker's 1:500 leverage cap around NFP/CPI/Fed releases, which §1 had flagged as an unresolved tail risk.
+New exclusion rules (hard rules). Session D (range 20:00 D → Hard-Kill 16:16 on next weekday K) is excluded if:
+  (a) D is an FOMC decision day: post-statement repricing regime, same rationale as the Sunday exclusion.
+  (b) K has an FOMC statement (14:00), CPI (08:30) or Employment Situation/NFP (08:30) release.
+  (c) K is a US market holiday or index-futures early-close day (bank holidays, Good Friday, day after Thanksgiving, 24 Dec, 3 Jul), so the 16:16 Hard-Kill could fall after the market closes (resolves the holiday-adjacent Hard-Kill question).
+  This replaces the earlier "exclude FOMC dates" wording. Day 1 of an FOMC meeting is excluded by (b), decision day by (a).
+  Fail-closed: the event calendar (engine/session/events.py, from federalreserve.gov + bls.gov) has an explicit horizon. Past it, no trading until it is updated; the engine alerts 30 days ahead.
+  Measured impact (script output, 2026): 155 of 208 Mon–Thu sessions tradeable (74.5%) vs ~184 before, about 16% fewer. The forward-test estimate moves from ~9–10 to ~11 months. Accepted: the project's methodology puts provable risk control ahead of sample speed.
+Resting-order invalidation vs opposite-side suppression (§4 internal contradiction). The suppression rule's stated purpose is "No dual-directional orders ever exist simultaneously"; the later and more specific v4.0 invalidation rule says to cancel the stale order "before processing the newly validated opposite setup". Resolved as: cancel, and only after the broker confirms the cancel, place the opposite setup. If the cancel fails because the order already filled, it is treated as a fill and no reversal happens. At most one reversal per day (≤2 entry orders/day), and at most one filled trade per day.
+Setup-level rejections (spread gate, margin/max-lot, min-lot, SL caps): "do not retry within the same setup instance" means that side is finished for the day; the opposite side may still validate as a separate setup instance.
+Price-tick rounding: entry/SL are rounded to the symbol tick in the conservative direction; SL points and TP are derived from the rounded prices (TP = exactly 3× the real SL distance).
+A 5m candle closing at exactly 21:00:00 NY is not acted on, because its order would expire in the same instant (§5).
 # 11. What This Document Does NOT Cover
 To keep document boundaries clean (per Document 1, Section 6):
 

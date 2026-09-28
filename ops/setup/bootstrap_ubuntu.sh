@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
-# ALSE VPS bootstrap — Ubuntu 24.04 x86_64 (AWS EC2). Run as the default 'ubuntu' user:
+# ALSE VPS bootstrap — Ubuntu 24.04 x86_64 (GCP e2-micro, Doc 3 v1.3). Run as the default 'ubuntu' user:
 #   curl -fsSL https://raw.githubusercontent.com/MARKDISPLAYNONE/ALSE/arena/01a0e7cc-alse/ops/setup/bootstrap_ubuntu.sh | bash
 # Idempotent: safe to re-run.
 set -euo pipefail
 [[ "$(uname -m)" == "x86_64" ]] || { echo "x86_64 required (MT5 is x86 Windows) — see Doc 3 v1.2"; exit 1; }
 
-echo "== 1/6 swap (2 GB) =="
+echo "== 1/6 memory: 3 GB swap + zram (e2-micro has 1 GB RAM) =="
 if ! swapon --show | grep -q /swapfile; then
-  sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+  sudo fallocate -l 3G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 fi
+echo 'vm.swappiness=60' | sudo tee /etc/sysctl.d/99-alse.conf >/dev/null && sudo sysctl -q --system
 
 echo "== 2/6 base packages + timezone UTC =="
 sudo timedatectl set-timezone UTC
 sudo dpkg --add-architecture i386
 sudo apt-get update -y
 sudo apt-get install -y software-properties-common curl wget git xvfb cabextract unzip \
-  python3 python3-venv python3-pip fail2ban unattended-upgrades
+  python3 python3-venv python3-pip fail2ban unattended-upgrades vnstat zram-tools
+sudo systemctl enable --now vnstat
+printf 'ALGO=zstd\nPERCENT=50\n' | sudo tee /etc/default/zramswap >/dev/null && sudo systemctl restart zramswap || true
 
 echo "== 3/6 WineHQ stable =="
 if ! command -v wine >/dev/null; then
@@ -52,7 +55,7 @@ INNER
 
 echo "== 6/6 done =="
 cat <<'MSG'
-NEXT (manual, see docs/runbooks/01_aws_vps_setup.md):
+NEXT (manual, see docs/runbooks/01_gcp_vps_setup.md):
   a) Install the FX Pesa MT5 terminal under Wine (step 6 of runbook) and log in to the DEMO account once.
   b) sudo -u alse cp /path/to/.env /opt/alse/.env && sudo chmod 600 /opt/alse/.env
   c) sudo cp /opt/alse/ops/systemd/*.service /etc/systemd/system/ && sudo systemctl daemon-reload

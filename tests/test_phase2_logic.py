@@ -139,15 +139,15 @@ def test_fifo_high_swept_first_then_low_valid():
     d.on_m5_close(c("20035", "20045", "20034", "20036"))               # high swept, no valid displacement
     assert d.on_m5_close(c("19995", "20013", "19990", "20012", 5)) == [PlaceEntry(Side.BULLISH)]
 
-def test_invalidation_cancel_only_default():
-    d = SignalDetector(R, END)
+def test_invalidation_cancel_only_policy():
+    d = SignalDetector(R, END, policy=InvalidationPolicy.CANCEL_ONLY)
     d.on_m5_close(c("19995", "20013", "19990", "20012"))
     acts = d.on_m5_close(c("20045", "20046", "20028", "20029", 5))       # bear valid: pen 11, br 16/18
     assert acts == [CancelResting(Side.BULLISH, "opposite setup validated")]
     assert d.on_m5_close(c("19995", "20013", "19990", "20012", 10)) == []  # done for the day
 
-def test_invalidation_cancel_and_reverse_policy():
-    d = SignalDetector(R, END, policy=InvalidationPolicy.CANCEL_AND_REVERSE)
+def test_invalidation_cancel_and_reverse_default():
+    d = SignalDetector(R, END)
     d.on_m5_close(c("19995", "20013", "19990", "20012"))
     acts = d.on_m5_close(c("20045", "20046", "20028", "20029", 5))
     assert acts == [CancelResting(Side.BULLISH, "opposite setup validated"), PlaceEntry(Side.BEARISH)]
@@ -172,3 +172,26 @@ def test_window_end_cancels_resting():
 
 def test_decimal_types():
     assert isinstance(plan_order(Side.BULLISH, R40).tp, Decimal)
+
+
+def test_max_one_reversal_per_day():
+    d = SignalDetector(R, END)
+    d.on_m5_close(c("19995", "20013", "19990", "20012"))                 # bull placed
+    d.on_m5_close(c("20045", "20046", "20028", "20029", 5))               # cancel bull, place bear
+    acts = d.on_m5_close(c("19995", "20013", "19990", "20012", 10))       # bull again → cancel only
+    assert acts == [CancelResting(Side.BEARISH, "opposite setup validated")]
+    assert d.done_for_day
+
+def test_rejected_side_does_not_retry_but_opposite_may():
+    d = SignalDetector(R, END)
+    assert d.on_m5_close(c("19995", "20013", "19990", "20012")) == [PlaceEntry(Side.BULLISH)]
+    d.on_entry_rejected(Side.BULLISH)                                     # e.g. spread gate
+    assert d.on_m5_close(c("19995", "20013", "19990", "20012", 5)) == []  # same side: no retry
+    assert d.on_m5_close(c("20045", "20046", "20028", "20029", 10)) == [PlaceEntry(Side.BEARISH)]
+
+def test_cancel_failed_because_filled_blocks_reversal():
+    d = SignalDetector(R, END)
+    d.on_m5_close(c("19995", "20013", "19990", "20012"))
+    d.on_m5_close(c("20045", "20046", "20028", "20029", 5))
+    d.on_cancel_failed_already_filled()
+    assert d.filled and d.on_m5_close(c("20045", "20046", "20028", "20029", 10)) == []

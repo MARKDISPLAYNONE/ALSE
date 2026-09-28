@@ -17,6 +17,7 @@ import time
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from engine.session.calendar import days_until_horizon
 from engine.session.clock import (
     ACTIVE_HEARTBEAT_EVERY,
     NY,
@@ -27,6 +28,20 @@ from engine.session.clock import (
 )
 
 log = logging.getLogger("alse.heartbeat")
+
+
+def _mem_payload() -> dict:
+    """RAM/swap from /proc/meminfo (Linux) — metric F10; empty elsewhere."""
+    try:
+        info = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                k, v = line.split(":", 1)
+                info[k] = int(v.split()[0]) // 1024
+        return {"mem_total_mb": info.get("MemTotal"), "mem_avail_mb": info.get("MemAvailable"),
+                "swap_used_mb": info.get("SwapTotal", 0) - info.get("SwapFree", 0)}
+    except OSError:
+        return {}
 
 
 class HeartbeatService:
@@ -42,7 +57,18 @@ class HeartbeatService:
     def beat(self, kind: str, at: datetime | None = None) -> None:
         connected = self.mt5.is_connected() if self.mt5 else None
         self.writer.insert("heartbeats", {**stamp(at).as_row(), "kind": kind, "mt5_connected": connected,
-                                          "buffer_backlog": self.writer.backlog(), "host": socket.gethostname()})
+                                          "buffer_backlog": self.writer.backlog(), "host": socket.gethostname(),
+                                          "payload": _mem_payload()})
+        if kind == "daily_coarse":
+            self._check_calendar_horizon(at)
+
+    def _check_calendar_horizon(self, at: datetime | None) -> None:
+        left = days_until_horizon((at or now_utc()).astimezone(NY).date())
+        if left <= 30 and self.notifier:
+            sev = "critical" if left <= 7 else "high"
+            self.notifier.send("Event calendar horizon approaching",
+                               f"{left} days left. Add the next BLS CPI/NFP + FOMC dates to engine/session/events.py "
+                               "or trading halts (fail-closed, Doc 2 v5.1).", sev)
 
     def tick(self, at: datetime | None = None) -> None:
         now = at or now_utc()

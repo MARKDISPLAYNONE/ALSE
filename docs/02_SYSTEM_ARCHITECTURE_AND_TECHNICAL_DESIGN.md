@@ -194,6 +194,14 @@ Finding: the v1.1 primary host (Oracle Always Free ARM Ampere A1) cannot run the
 Decision (owner sign-off 28 Sept 2026): AWS EC2 (x86) is now the primary host, running Ubuntu Server + Wine (OS decision unchanged). Instance: t3.small (2 GB RAM) if the account is on AWS's post-15-July-2025 credit-based Free plan, where t3.small is free-plan eligible; otherwise t3.micro + 2 GB swap.
 Budget caveat (new, material): AWS accounts created on or after 15 July 2025 receive up to $200 in credits valid for 6 months, not the legacy 12-month free tier assumed in v1.1. The Phase 4 + Phase 5 timeline (8+ weeks demo + ~9–10 months forward test) is longer than this, so the $0 constraint cannot hold on AWS for the whole project. Tracked as Doc 6 risk-register item and a dated reminder: the owner must choose, before month 5 of the account, between (a) activating the Doc 3 §1 upgrade trigger (~$15–20/month for t3.small), or (b) migrating to another x86 host. Migration mid-forward-test is discouraged, because it changes execution latency conditions within the test sample.
 Oracle ARM rejected on technical grounds (CPU architecture). Oracle AMD E2.1.Micro kept as the documented x86 fallback (1 GB RAM, lower reliability).
+
+v1.3 (28 September 2026) — Hosting re-decided on a sustainability review; supersedes v1.2's AWS choice before anything was provisioned:
+AWS rejected: new accounts get $200 in credits for 6 months, which cannot cover the ~13+ month demo + forward test at $0.
+Oracle rejected: ARM is incompatible with x86 MT5; the AMD E2.1.Micro has 1/8 OCPU with widely reported heavy CPU steal (bad for a 250ms poll loop); Always Free instances are reclaimable when idle (our engine idles ~22h/day); and Oracle cut its A1 allowance in June 2026.
+DECISION: Google Cloud Compute Engine e2-micro, Always Free, region us-east1 (South Carolina, the closest free region to NY4), Standard persistent disk 30 GB, Standard network tier. x86, permanent, no idle-reclamation policy, 2 shared vCPU (burst), 1 GB RAM. This preserves the $0 constraint for the life of the project.
+Compensating controls for 1 GB RAM: 3 GB swap + zram; headless Xvfb; MT5 tuned (single symbol in Market Watch, no charts, max bars 5000, news off); systemd MemoryMax on the engine; RAM/swap reported in each heartbeat payload (metric F10).
+Egress budget (Always Free = 1 GB/month outbound from North America): raw tick storage is changed from "batched every few seconds" to 1-second spread samples during 20:00–21:00 NY plus a snapshot on every order event (~0.5 MB/day). Heartbeats/events are negligible. vnstat monitors egress, with an alert at 700 MB/month. Inbound market data is free.
+Fallback: the owner's own Windows PC running the native MetaTrader5 package (no Wine), as a manual warm standby if the VM is ever unavailable. Positions stay protected server-side either way (§2 invariant).
 # 10. What This Document Does NOT Cover (see Section 8)
 End of Document 3 v1.1.
 

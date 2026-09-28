@@ -75,3 +75,28 @@
 5. Dry-run mode against recorded/simulated data (Phase 2 exit, Phase 3 entry).
 
 **Must read before touching code:** escalation #4 above. `engine/` is float-free, and CI enforces it.
+
+
+## Handover Entry — 28 September 2026 — Session #3
+
+**Tasks completed this block (5):**
+1. Hosting re-decided after a proper 2026 review (Doc 3 v1.3): **GCP e2-micro Always Free, us-east1**. Rejected: AWS ($200/6-month credits, not sustainable), Oracle (ARM incompatible; AMD micro has heavy steal; idle reclamation; 2026 allowance cut). The AWS runbook was replaced by `docs/runbooks/01_gcp_vps_setup.md`. Bootstrap tuned for 1 GB RAM (3 GB swap, zram, vnstat); engine has `MemoryMax=300M`.
+2. Doc 2 v5.1 hold-window rule. Found a factual error in Doc 2 §1: NFP/CPI are NOT confined to Fridays (BLS: NFP Tue 16 Dec 2025, Wed 11 Feb 2026, Thu 2 Jul 2026), and only the entry window had been checked, never the hold window through 16:16 next day. New `engine/session/events.py` (official FOMC/BLS dates) and rewritten calendar rules: exclude FOMC decision days, sessions whose hold window contains FOMC/CPI/NFP, and sessions whose Hard-Kill day is a market closure or early close. Fail-closed at the calendar horizon (currently 31 Dec 2026).
+3. Escalations #4/#5 resolved (Doc 2 v5.1): cancel → broker confirms → reverse, max one reversal/day, one filled trade/day. A setup-level rejection ends only that side's setup instance.
+4. Heartbeat: RAM/swap in the payload (F10); 30-day calendar-horizon alert (high, critical at 7 days).
+5. Docs synchronized: Doc 2 v5.1, Doc 3 v1.3, Doc 6 v1.6 (risk register + ~11-month forward-test estimate), README. 57 tests pass.
+
+**Current phase:** Phase 1 IN PROGRESS (owner: create the GCP VM per runbook 01). Phase 2 IN PROGRESS (pure logic done).
+
+**Decisions made & rationale:** all recorded in Doc 2 v5.1 / Doc 3 v1.3 Change Logs (owner delegated these to the lead dev on 28 Sept 2026). Measured impact: 155/208 Mon–Thu sessions tradeable in 2026 (74.5%).
+
+**Open items:**
+- 2027 CPI/NFP dates: add when BLS publishes them (usually Q4). The engine alerts from 1 Dec 2026. Owner/dev action.
+- Doc 6 item 1 (broker spec PDF) and item 13 (broker entity): owner paperwork.
+
+**Next 5 tasks queued:**
+1. Owner: GCP VM per runbook 01 → smoke test with MT5 → UptimeRobot. That is Phase 1 sign-off.
+2. mt5_client order methods (send/modify/remove/close) with pending→confirmed audit rows.
+3. Engine orchestrator (session loop, range marking, detector wiring, 250ms poll, 1s spread sampling).
+4. Trade management + Hard-Kill + circuit-breaker flatten + restart state recovery.
+5. Dry-run mode over recorded data (Phase 2 exit).

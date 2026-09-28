@@ -29,7 +29,7 @@ pytest -q && ruff check .
    Copy the project URL + `service_role` key into `.env` (engine only). Create one Auth user for yourself (dashboard login).
 2. **Discord**: create two channels (`#alse-trades`, `#alse-critical`) → Integrations → Webhooks → paste URLs into `.env`.
 3. **MT5 demo** at FX Pesa: note login / password / server name → `.env`.
-4. **VPS** — Oracle Cloud Always Free, Ubuntu 22.04/24.04 (AWS t3.micro fallback):
+4. **VPS** — Google Cloud e2-micro Always Free, us-east1 (Doc 3 v1.3) — follow docs/runbooks/01_gcp_vps_setup.md:
    - SSH key-only; security list: SSH from your IP, TCP 8080 for the uptime monitor only.
    - `sudo apt install wine64 xvfb python3.11-venv`; install Windows Python 3.11 + `pip install MetaTrader5 mt5linux` inside Wine; install the FX Pesa MT5 terminal under Wine.
    - Clone repo to `/opt/alse`, create `.venv`, `pip install -e ".[mt5-bridge]"`, copy `.env`.
