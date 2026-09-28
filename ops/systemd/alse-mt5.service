@@ -1,0 +1,15 @@
+# MT5 terminal + mt5linux bridge under Wine, headless via Xvfb (Doc 3 §5/§6).
+[Unit]
+Description=ALSE MT5 terminal + RPyC bridge (Wine)
+After=network-online.target
+
+[Service]
+User=alse
+Environment=WINEPREFIX=/home/alse/.wine DISPLAY=:99
+ExecStartPre=/bin/sh -c 'pgrep Xvfb || (Xvfb :99 -screen 0 1024x768x16 &)'
+ExecStart=/usr/bin/wine "C:\\Python311\\python.exe" -m mt5linux "C:\\Python311\\python.exe" --host 127.0.0.1 --port 18812
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

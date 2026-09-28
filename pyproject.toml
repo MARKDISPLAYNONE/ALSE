@@ -1,0 +1,37 @@
+[project]
+name = "alse"
+version = "0.1.0"
+description = "NAS100 Autonomous Liquidity Sweep Engine"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.27",
+  "python-dotenv>=1.0",
+  "tzdata>=2024.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "pre-commit>=3.7"]
+mt5-native = ["MetaTrader5>=5.0.45"]
+mt5-bridge = ["mt5linux>=0.1.9"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+
+[tool.ruff.lint]
+# Ban float() usage in engine money paths is enforced by tests/test_no_float.py
+select = ["E", "F", "I", "B", "UP"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["engine*", "data*", "alerts*", "ops*", "scripts*"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E702", "E731"]

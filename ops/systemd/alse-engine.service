@@ -1,0 +1,17 @@
+# Doc 3 §5: supervised daemon, Restart=always. Install: sudo cp ops/systemd/*.service /etc/systemd/system/
+[Unit]
+Description=ALSE trading engine (heartbeat + engine loop)
+After=network-online.target alse-mt5.service
+Wants=network-online.target
+
+[Service]
+User=alse
+WorkingDirectory=/opt/alse
+EnvironmentFile=/opt/alse/.env
+ExecStart=/opt/alse/.venv/bin/python -m ops.heartbeat
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
