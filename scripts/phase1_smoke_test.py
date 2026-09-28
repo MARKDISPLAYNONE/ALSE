@@ -58,7 +58,7 @@ def immut():
     try:
         after = g.json()
     except ValueError:
-        return False, f"read-back not JSON: GET={g.status_code} body={g.text[:200]!r} PATCH={u.status_code} DELETE={d.status_code}"
+        return False, f"read-back not JSON GET={g.status_code} body={g.text[:150]!r} P={u.status_code} D={d.status_code}"
     intact = after == [{"detail": "original"}]
     note = (f"PATCH={u.status_code} DELETE={d.status_code} row_after={after}"
             + ("" if intact else f" | PATCH body={u.text[:160]} | DELETE body={d.text[:160]}"))
