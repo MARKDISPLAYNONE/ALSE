@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 
 import httpx
@@ -36,10 +37,22 @@ check("supabase insert", lambda: (lambda r: (r.ok and not r.buffered, str(r)))(
 
 
 def immut():
-    base = f"{s.supabase_url}/rest/v1/system_events?event=eq.phase1_smoke_test"
-    u = httpx.patch(base, headers={**hdr, "Content-Type": "application/json"}, json={"detail": "tamper"})
-    d = httpx.delete(base, headers=hdr)
-    return (u.status_code >= 400 and d.status_code >= 400, f"PATCH={u.status_code} DELETE={d.status_code}")
+    """Insert a probe row, try to PATCH + DELETE it, then READ IT BACK. Status codes alone can lie
+    (a filter matching 0 rows also returns 2xx), so the proof is: row still exists, unchanged."""
+    probe = str(uuid.uuid4())
+    r = w.insert("system_events", {**stamp().as_row(), "event": "immutability_probe", "severity": "info",
+                                   "detail": "original", "row_uuid": probe})
+    if not r.ok:
+        return False, f"probe insert failed: {r}"
+    base = f"{s.supabase_url}/rest/v1/system_events?row_uuid=eq.{probe}"
+    rep = {**hdr, "Content-Type": "application/json", "Prefer": "return=representation"}
+    u = httpx.patch(base, headers=rep, json={"detail": "TAMPERED"})
+    d = httpx.delete(base, headers=rep)
+    after = httpx.get(base + "&select=detail", headers=hdr).json()
+    intact = after == [{"detail": "original"}]
+    note = (f"PATCH={u.status_code} DELETE={d.status_code} row_after={after}"
+            + ("" if intact else f" | PATCH body={u.text[:160]} | DELETE body={d.text[:160]}"))
+    return intact and u.status_code >= 400 and d.status_code >= 400, note
 
 
 check("immutability enforced (service role blocked)", immut)

@@ -7,6 +7,9 @@ Guarantees:
   * Buffered rows are flushed in order once the write path is healthy again.
   * Writes go through PostgREST with JSON bodies (parameterized by construction — Doc 4 §1.4).
   * INSERT only. This client exposes no update/delete method on purpose.
+  * Idempotent: every row gets a client-side row_uuid; inserts use ON CONFLICT (row_uuid)
+    DO NOTHING. A write that lands at the DB *after* the 2s deadline (and was therefore also
+    buffered) can never produce a duplicate audit row when the buffer is flushed.
 """
 from __future__ import annotations
 
@@ -14,7 +17,9 @@ import json
 import logging
 import os
 import threading
-import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -52,9 +57,11 @@ class SupabaseWriter:
             "apikey": service_key,
             "Authorization": f"Bearer {service_key}",
             "Content-Type": "application/json",
-            "Prefer": "return=minimal",
+            "Prefer": "return=minimal,resolution=ignore-duplicates",
         }
         self._http = httpx.Client(timeout=httpx.Timeout(WRITE_TIMEOUT_S), transport=transport)
+        # Worker pool enforces a strict wall-clock deadline (httpx timeouts are per-phase, not total).
+        self._pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="sb-write")
         buffer_dir.mkdir(parents=True, exist_ok=True)
         self._buffer = buffer_dir / "supabase_buffer.jsonl"
         self._lock = threading.Lock()
@@ -63,6 +70,7 @@ class SupabaseWriter:
     # ---------- public ---------------------------------------------------
     def insert(self, table: str, row: dict[str, Any]) -> WriteResult:
         """Synchronous insert. If anything is already buffered, append behind it to preserve order."""
+        row = {**row, "row_uuid": str(row.get("row_uuid") or uuid.uuid4())}
         if self.backlog() > 0:
             self._append_buffer(table, row)
             self.try_flush()
@@ -111,20 +119,28 @@ class SupabaseWriter:
             return flushed
 
     def close(self) -> None:
+        self._pool.shutdown(wait=False, cancel_futures=True)
         self._http.close()
 
     # ---------- internals -----------------------------------------------
     def _post(self, table: str, row: dict[str, Any]) -> str | None:
-        body = json.dumps(row, default=_json_default)
-        started = time.monotonic()
+        """Return None on success, else an error string. Hard 2s wall-clock deadline."""
+        fut = self._pool.submit(self._do_post, table, row)
         try:
-            r = self._http.post(f"{self._base}/{table}", headers=self._headers, content=body)
+            return fut.result(timeout=WRITE_TIMEOUT_S)
+        except FutureTimeout:
+            # The request may still land later — harmless: row_uuid makes the flush idempotent.
+            return f"timeout>{WRITE_TIMEOUT_S}s"
+
+    def _do_post(self, table: str, row: dict[str, Any]) -> str | None:
+        body = json.dumps(row, default=_json_default)
+        try:
+            r = self._http.post(f"{self._base}/{table}", headers=self._headers,
+                                params={"on_conflict": "row_uuid"}, content=body)
         except httpx.TimeoutException:
             return f"timeout>{WRITE_TIMEOUT_S}s"
         except httpx.HTTPError as e:
             return f"http_error:{e.__class__.__name__}"
-        if time.monotonic() - started > WRITE_TIMEOUT_S:
-            return f"timeout>{WRITE_TIMEOUT_S}s"
         if r.status_code >= 300:
             return f"status_{r.status_code}:{r.text[:200]}"
         return None
