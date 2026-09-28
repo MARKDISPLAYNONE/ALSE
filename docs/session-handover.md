@@ -36,3 +36,10 @@
 5. Phase 2 `engine/risk`: lot sizing, min-lot / margin checks, and the full state-machine transition table with tests.
 
 **Anything a replacement dev MUST read before touching code:** Doc 1 §8–9, Doc 2 in full (especially §4 through §8 and §10), Doc 3 §3.2/§3.3/§6, and this entry's escalations. Never add float to `engine/` (CI enforces this). Never add an update/delete path to audit tables.
+
+### Addendum — 28 Sept 2026 — Session #1 (Phase 1 verification)
+- ✅ Supabase schema v1 + 0002 (row_uuid idempotency) live. 23 immutability triggers verified in pg_trigger. A manual UPDATE in the SQL editor was blocked with `42501 ALSE: UPDATE ... forbidden`.
+- ✅ Smoke test (`--no-mt5`) all PASS: insert proven by read-back, service-role PATCH/DELETE → 403 with the row unchanged, 2s timeout → buffer, Discord delivered.
+- Bugs found and fixed during bring-up: (a) the post-hoc timeout could duplicate rows, fixed with row_uuid + ON CONFLICT DO NOTHING and a strict wall-clock deadline; (b) a wrong SUPABASE_URL (the dashboard URL) returned HTML 200s that counted as successful writes, fixed with URL validation and rejection of HTML responses; (c) the reset script failed when tables were missing.
+- Phase 1 exit criteria remaining: MT5 via Wine on the VPS (blocked on escalation #1, host CPU architecture) and the external uptime monitor.
+- Owner note: the engine `.env` must never use `NEXT_PUBLIC_*` names for secrets. The dashboard (Phase 6) gets its own env with the publishable/anon key only.
