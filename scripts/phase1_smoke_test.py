@@ -32,6 +32,12 @@ s = Settings.load(require_mt5="--no-mt5" not in sys.argv)
 w = SupabaseWriter(s.supabase_url, s.supabase_service_key, s.buffer_dir)
 hdr = {"apikey": s.supabase_service_key, "Authorization": f"Bearer {s.supabase_service_key}"}
 
+flushed = w.try_flush()
+if w.backlog():
+    print(f"[WARN] {w.backlog()} rows still in local buffer ({s.buffer_dir}) — Supabase rejecting them; see errors above")
+elif flushed:
+    print(f"[INFO] flushed {flushed} rows left in local buffer from a previous run")
+
 check("supabase insert", lambda: (lambda r: (r.ok and not r.buffered, str(r)))(
     w.insert("system_events", {**stamp().as_row(), "event": "phase1_smoke_test", "severity": "info"})))
 
@@ -48,7 +54,11 @@ def immut():
     rep = {**hdr, "Content-Type": "application/json", "Prefer": "return=representation"}
     u = httpx.patch(base, headers=rep, json={"detail": "TAMPERED"})
     d = httpx.delete(base, headers=rep)
-    after = httpx.get(base + "&select=detail", headers=hdr).json()
+    g = httpx.get(base + "&select=detail", headers=hdr)
+    try:
+        after = g.json()
+    except ValueError:
+        return False, f"read-back not JSON: GET={g.status_code} body={g.text[:200]!r} PATCH={u.status_code} DELETE={d.status_code}"
     intact = after == [{"detail": "original"}]
     note = (f"PATCH={u.status_code} DELETE={d.status_code} row_after={after}"
             + ("" if intact else f" | PATCH body={u.text[:160]} | DELETE body={d.text[:160]}"))
